@@ -1,0 +1,65 @@
+rules_version = '2';
+// Paste this into Firebase console → Firestore Database → Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Signed in with a verified Northeastern address.
+    function isHusky() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@(northeastern[.]edu|husky[.]neu[.]edu)$');
+    }
+
+    // Moderators: add a document at admins/{their uid} by hand in the console.
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function validMicrowave(d) {
+      return d.keys().hasOnly(['building', 'level', 'spot', 'count', 'notes', 'lat', 'lng',
+                               'createdBy', 'createdAt', 'updatedAt', 'votes'])
+        && d.keys().hasAll(['building', 'level', 'spot', 'count', 'lat', 'lng', 'createdBy', 'createdAt', 'votes'])
+        && d.building is string && d.building.size() >= 2 && d.building.size() <= 80
+        && d.level is int && d.level >= -3 && d.level <= 40 && d.level != 0
+        && d.spot is string && d.spot.size() >= 2 && d.spot.size() <= 200
+        && d.count is int && d.count >= 1 && d.count <= 30
+        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 300))
+        && d.lat is number && d.lat > 42.3315 && d.lat < 42.3455
+        && d.lng is number && d.lng > -71.0985 && d.lng < -71.0805
+        && d.votes is map && d.votes.size() <= 2000;
+    }
+
+    match /microwaves/{id} {
+      // Anyone can look at the map, no sign-in needed.
+      allow read: if true;
+
+      allow create: if isHusky()
+        && validMicrowave(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.votes.size() == 0;
+
+      allow update: if isAdmin() || (isHusky() && validMicrowave(request.resource.data) && (
+        // The person who added it can fix its details (not its votes or authorship).
+        (resource.data.createdBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['building', 'level', 'spot', 'count', 'notes', 'lat', 'lng', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time)
+        ||
+        // Anyone verified can set or clear their own "here" / "gone" vote, and nothing else.
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+          && request.resource.data.votes.diff(resource.data.votes).affectedKeys().hasOnly([request.auth.uid])
+          && (!(request.auth.uid in request.resource.data.votes)
+              || request.resource.data.votes[request.auth.uid] in ['here', 'gone']))
+      ));
+
+      allow delete: if isAdmin() || (isHusky() && resource.data.createdBy == request.auth.uid);
+    }
+
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+  }
+}

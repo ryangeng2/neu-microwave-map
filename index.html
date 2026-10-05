@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NEU Microwave Map</title>
+  <meta name="description" content="Find a microwave on Northeastern's Boston campus, floor by floor. Marked by students, for students.">
+  <meta name="theme-color" content="#c8102e">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='6' width='28' height='20' rx='4' fill='%23c8102e'/%3E%3Crect x='6' y='10' width='15' height='12' rx='2' fill='%23fff'/%3E%3Ccircle cx='25.5' cy='13' r='1.6' fill='%23fff'/%3E%3Ccircle cx='25.5' cy='19' r='1.6' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=Share+Tech+Mono&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+  <div id="map" aria-label="3D map of Northeastern's Boston campus"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><span></span></span>
+      <h1 class="brand-name">NEU Microwave Map</h1>
+    </div>
+    <div class="topbar-actions">
+      <button id="home-btn" class="chip-btn" type="button" title="Show the whole campus">Campus</button>
+      <button id="toggle-3d" class="chip-btn" type="button" aria-pressed="true" title="Switch between tilted 3D and flat 2D">3D</button>
+      <button id="account-btn" class="chip-btn" type="button">Sign in</button>
+    </div>
+  </header>
+
+  <aside id="panel" class="panel" aria-live="polite">
+    <button id="sheet-handle" class="sheet-handle" type="button" aria-label="Expand or collapse the list"><span></span></button>
+    <div id="banner" class="banner" hidden></div>
+    <div id="panel-body" class="panel-body"></div>
+  </aside>
+
+  <button id="add-btn" class="add-btn" type="button">
+    <span aria-hidden="true">+</span> Add microwave
+  </button>
+
+  <div id="place-hint" class="place-hint" hidden>
+    Tap the map where the microwave is
+    <button id="place-cancel" type="button">Cancel</button>
+  </div>
+
+  <dialog id="auth-dialog" class="dialog">
+    <form id="auth-form" method="dialog" novalidate>
+      <div class="dialog-head">
+        <h2 id="auth-title">Sign in to add microwaves</h2>
+        <button type="button" class="icon-btn" id="auth-close" aria-label="Close">×</button>
+      </div>
+      <p class="muted">Anyone can browse the map. To add or confirm a microwave, sign in with your Northeastern email.</p>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-signin" aria-selected="true">I have an account</button>
+        <button type="button" role="tab" id="tab-signup" aria-selected="false">I'm new</button>
+      </div>
+      <label for="auth-email">Northeastern email</label>
+      <input id="auth-email" type="email" autocomplete="email" placeholder="lastname.f@northeastern.edu" required>
+      <label for="auth-password">Password <span class="muted" id="pw-hint">(pick a new one for this site, at least 8 characters)</span></label>
+      <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required>
+      <p id="auth-error" class="form-error" role="alert" hidden></p>
+      <p id="auth-info" class="form-info" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="link-btn" id="auth-forgot">Forgot password?</button>
+        <button type="submit" class="primary-btn" id="auth-submit">Sign in</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <script type="module" src="app.js?v=2"></script>
+</body>
+</html>
