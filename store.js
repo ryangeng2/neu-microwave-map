@@ -1,6 +1,6 @@
 // Data + auth backend. Firebase when config.js has a config; otherwise a
 // browser-only preview store with the same interface.
-import { firebaseConfig } from "./config.js?v=3";
+import { firebaseConfig } from "./config.js?v=4";
 
 const FB = "https://www.gstatic.com/firebasejs/12.19.0";
 
@@ -22,9 +22,35 @@ async function createFirebaseStore() {
 
   const toUser = (u) => u && { uid: u.uid, email: u.email, emailVerified: u.emailVerified };
 
+  // The security rules read email_verified from the ID token, which can still
+  // say false for up to an hour after someone clicks the verification link.
+  async function freshToken(force = false) {
+    const u = auth.currentUser;
+    if (!u) return;
+    if (force) return void (await u.getIdToken(true));
+    const { claims } = await u.getIdTokenResult();
+    if (u.emailVerified && !claims.email_verified) await u.getIdToken(true);
+  }
+  // Run a write with an up-to-date token; if the rules still refuse, refresh once and retry.
+  async function write(fn) {
+    await freshToken();
+    try { return await fn(); }
+    catch (e) {
+      if (e?.code !== "permission-denied") throw e;
+      await auth.currentUser?.reload();
+      await freshToken(true);
+      return await fn();
+    }
+  }
+
   return {
     preview: false,
-    onAuth(cb) { return A.onAuthStateChanged(auth, (u) => cb(toUser(u))); },
+    onAuth(cb) {
+      return A.onAuthStateChanged(auth, async (u) => {
+        try { await freshToken(); } catch { /* offline: the write path retries */ }
+        cb(toUser(u));
+      });
+    },
     async signIn(email, password) { await A.signInWithEmailAndPassword(auth, email, password); },
     async signUp(email, password) {
       const { user } = await A.createUserWithEmailAndPassword(auth, email, password);
@@ -46,15 +72,15 @@ async function createFirebaseStore() {
       }, onError);
     },
     async add(data) {
-      await F.addDoc(col, { ...data, createdBy: auth.currentUser.uid, createdAt: F.serverTimestamp(), votes: {} });
+      await write(() => F.addDoc(col, { ...data, createdBy: auth.currentUser.uid, createdAt: F.serverTimestamp(), votes: {} }));
     },
     async update(id, data) {
-      await F.updateDoc(F.doc(db, "microwaves", id), { ...data, updatedAt: F.serverTimestamp() });
+      await write(() => F.updateDoc(F.doc(db, "microwaves", id), { ...data, updatedAt: F.serverTimestamp() }));
     },
-    async remove(id) { await F.deleteDoc(F.doc(db, "microwaves", id)); },
+    async remove(id) { await write(() => F.deleteDoc(F.doc(db, "microwaves", id))); },
     async vote(id, value) {
       const uid = auth.currentUser.uid;
-      await F.updateDoc(F.doc(db, "microwaves", id), { [`votes.${uid}`]: value ?? F.deleteField() });
+      await write(() => F.updateDoc(F.doc(db, "microwaves", id), { [`votes.${uid}`]: value ?? F.deleteField() }));
     },
   };
 }

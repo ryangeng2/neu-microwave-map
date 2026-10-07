@@ -1,5 +1,5 @@
-import { createStore } from "./store.js?v=3";
-import { allowedDomains } from "./config.js?v=3";
+import { createStore } from "./store.js?v=4";
+import { allowedDomains } from "./config.js?v=4";
 
 /* ---------------- constants ---------------- */
 const STYLE = {
@@ -670,7 +670,7 @@ function errorText(e) {
     "auth/invalid-email": "That doesn't look like an email address.",
     "auth/too-many-requests": "Too many tries. Wait a few minutes and try again.",
     "auth/network-request-failed": "No connection. Check your Wi-Fi and try again.",
-    "permission-denied": "The database refused that. Make sure your email is verified, then try again.",
+    "permission-denied": "The database refused that. Sign out, sign back in, then try again.",
     "unavailable": "Can't reach the database right now. Try again in a moment.",
   };
   return msgs[code] || e?.message || "Something went wrong. Try again.";
