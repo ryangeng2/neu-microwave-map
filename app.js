@@ -1,5 +1,5 @@
-import { createStore } from "./store.js";
-import { allowedDomains } from "./config.js";
+import { createStore } from "./store.js?v=3";
+import { allowedDomains } from "./config.js?v=3";
 
 /* ---------------- constants ---------------- */
 const STYLE = {

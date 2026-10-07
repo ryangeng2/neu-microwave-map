@@ -1,6 +1,6 @@
 // Data + auth backend. Firebase when config.js has a config; otherwise a
 // browser-only preview store with the same interface.
-import { firebaseConfig } from "./config.js";
+import { firebaseConfig } from "./config.js?v=3";
 
 const FB = "https://www.gstatic.com/firebasejs/12.19.0";
 
