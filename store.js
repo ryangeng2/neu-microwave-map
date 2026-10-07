@@ -1,6 +1,6 @@
 // Data + auth backend. Firebase when config.js has a config; otherwise a
 // browser-only preview store with the same interface.
-import { firebaseConfig } from "./config.js?v=4";
+import { firebaseConfig } from "./config.js?v=5";
 
 const FB = "https://www.gstatic.com/firebasejs/12.19.0";
 
@@ -20,49 +20,23 @@ async function createFirebaseStore() {
   const col = F.collection(db, "microwaves");
   const verifyUrl = location.origin + location.pathname;
 
-  const toUser = (u) => u && { uid: u.uid, email: u.email, emailVerified: u.emailVerified };
+  const toUser = (u) => u && { uid: u.uid, email: u.email };
 
-  // The security rules read email_verified from the ID token, which can still
-  // say false for up to an hour after someone clicks the verification link.
-  async function freshToken(force = false) {
-    const u = auth.currentUser;
-    if (!u) return;
-    if (force) return void (await u.getIdToken(true));
-    const { claims } = await u.getIdTokenResult();
-    if (u.emailVerified && !claims.email_verified) await u.getIdToken(true);
-  }
-  // Run a write with an up-to-date token; if the rules still refuse, refresh once and retry.
+  // Run a write; if the rules refuse it, refresh the sign-in token once and retry.
   async function write(fn) {
-    await freshToken();
     try { return await fn(); }
     catch (e) {
-      if (e?.code !== "permission-denied") throw e;
-      await auth.currentUser?.reload();
-      await freshToken(true);
+      if (e?.code !== "permission-denied" || !auth.currentUser) throw e;
+      await auth.currentUser.getIdToken(true);
       return await fn();
     }
   }
 
   return {
     preview: false,
-    onAuth(cb) {
-      return A.onAuthStateChanged(auth, async (u) => {
-        try { await freshToken(); } catch { /* offline: the write path retries */ }
-        cb(toUser(u));
-      });
-    },
+    onAuth(cb) { return A.onAuthStateChanged(auth, (u) => cb(toUser(u))); },
     async signIn(email, password) { await A.signInWithEmailAndPassword(auth, email, password); },
-    async signUp(email, password) {
-      const { user } = await A.createUserWithEmailAndPassword(auth, email, password);
-      await A.sendEmailVerification(user, { url: verifyUrl });
-    },
-    async resendVerification() { if (auth.currentUser) await A.sendEmailVerification(auth.currentUser, { url: verifyUrl }); },
-    async refreshUser() {
-      if (!auth.currentUser) return null;
-      await auth.currentUser.reload();
-      await auth.currentUser.getIdToken(true); // pick up email_verified for the security rules
-      return toUser(auth.currentUser);
-    },
+    async signUp(email, password) { await A.createUserWithEmailAndPassword(auth, email, password); },
     async resetPassword(email) { await A.sendPasswordResetEmail(auth, email, { url: verifyUrl }); },
     async signOut() { await A.signOut(auth); },
 
@@ -87,7 +61,7 @@ async function createFirebaseStore() {
 
 function createPreviewStore() {
   const KEY = "neu-microwaves-preview";
-  const me = { uid: "preview-user", email: "you@northeastern.edu", emailVerified: true };
+  const me = { uid: "preview-user", email: "you@northeastern.edu" };
   let user = null;
   let items = [];
   const authSubs = new Set();
@@ -110,8 +84,6 @@ function createPreviewStore() {
     onAuth(cb) { authSubs.add(cb); queueMicrotask(() => cb(user)); return () => authSubs.delete(cb); },
     async signIn() { setUser(me); },
     async signUp() { setUser(me); },
-    async resendVerification() {},
-    async refreshUser() { return user; },
     async resetPassword() {},
     async signOut() { setUser(null); },
     subscribe(next) { dataSubs.add(next); queueMicrotask(() => next(items.map((x) => ({ ...x })))); return () => dataSubs.delete(next); },

@@ -1,5 +1,5 @@
-import { createStore } from "./store.js?v=4";
-import { allowedDomains } from "./config.js?v=4";
+import { createStore } from "./store.js?v=5";
+import { allowedDomains } from "./config.js?v=5";
 
 /* ---------------- constants ---------------- */
 const STYLE = {
@@ -81,7 +81,7 @@ function metersBetween(a, b) {
   const dy = (a.lat - b.lat) * 111320, dx = (a.lng - b.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
   return Math.hypot(dx, dy);
 }
-const canPost = () => !!state.user && (state.user.emailVerified || state.store?.preview);
+const canPost = () => !!state.user;
 const isMine = (item) => state.store?.preview || (state.user && item.createdBy === state.user.uid);
 const domainOk = (email) => allowedDomains.some((d) => email.toLowerCase().endsWith("@" + d));
 const inCampus = ({ lat, lng }) => lat > CAMPUS.south && lat < CAMPUS.north && lng > CAMPUS.west && lng < CAMPUS.east;
@@ -382,7 +382,6 @@ let draftMarker = null;
 
 function startAdd(prefill = {}) {
   if (!state.user) { state.pendingAfterAuth = () => startAdd(prefill); return openAuth(); }
-  if (!canPost()) { showBanner(); return toast("Verify your email first. The link is in your Northeastern inbox."); }
   state.draft = { building: "", level: 1, spot: "", count: 1, notes: "", levels: null, buildingAuto: false, ...prefill };
   setView("form");
   if (prefill.lat != null) setDraftPoint({ lat: prefill.lat, lng: prefill.lng }, { lookup: !prefill.building });
@@ -571,7 +570,6 @@ function cancelForm() {
 
 async function castVote(it, value) {
   if (!state.user) { state.pendingAfterAuth = () => castVote(it, value); return openAuth(); }
-  if (!canPost()) { showBanner(); return toast("Verify your email first. The link is in your Northeastern inbox."); }
   try { await state.store.vote(it.id, value); } catch (e) { toast(errorText(e)); }
 }
 
@@ -614,7 +612,7 @@ $("#auth-form").addEventListener("submit", async (e) => {
     else await state.store.signUp(email, pw);
     dlg.close();
     $("#auth-password").value = "";
-    if (authMode === "signup" && !state.store.preview) toast("Account made. Open the link we emailed you (check Junk), then come back.", 8000);
+    if (authMode === "signup") toast("Account made. You can add microwaves now.");
     const next = state.pendingAfterAuth; state.pendingAfterAuth = null;
     if (next && canPost()) next();
   } catch (err) { authMsg(errorText(err)); }
@@ -637,17 +635,6 @@ function showBanner() {
   b.replaceChildren();
   if (state.store?.preview) {
     b.append(h("span", { text: "Preview mode: pins are saved only in this browser until Firebase is connected in config.js." }));
-  } else if (state.user && !state.user.emailVerified) {
-    b.append(
-      h("span", { text: `Check ${state.user.email} for a verification link (look in Junk too).` }),
-      h("button", { type: "button", text: "I've verified", onclick: async () => {
-        const u = await state.store.refreshUser();
-        state.user = u; renderAccount();
-        toast(u?.emailVerified ? "Verified. You can add microwaves now." : "Not verified yet. Open the link in the email first.");
-      } }),
-      h("button", { type: "button", text: "Resend email", onclick: async () => {
-        try { await state.store.resendVerification(); toast("Sent again."); } catch (e) { toast(errorText(e)); }
-      } }));
   }
   b.hidden = !b.childNodes.length;
 }
@@ -670,7 +657,7 @@ function errorText(e) {
     "auth/invalid-email": "That doesn't look like an email address.",
     "auth/too-many-requests": "Too many tries. Wait a few minutes and try again.",
     "auth/network-request-failed": "No connection. Check your Wi-Fi and try again.",
-    "permission-denied": "The database refused that. Sign out, sign back in, then try again.",
+    "permission-denied": "The database refused that. Sign out, sign back in with your Northeastern email, then try again.",
     "unavailable": "Can't reach the database right now. Try again in a moment.",
   };
   return msgs[code] || e?.message || "Something went wrong. Try again.";

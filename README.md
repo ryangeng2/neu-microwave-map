@@ -3,7 +3,7 @@
 A 3D map of Northeastern's Boston campus where students mark where the microwaves are, floor by floor.
 
 - **Anyone** can open the map and browse, no account needed.
-- **Northeastern students** (verified `@northeastern.edu` email) can add microwaves, mark them "Still here" or "It's gone", and edit or delete their own.
+- **Northeastern students** (signed in with an `@northeastern.edu` email) can add microwaves, mark them "Still here" or "It's gone", and edit or delete their own.
 - Pins float at the floor they're on inside see-through 3D buildings. Tap a building to see its floor stack.
 
 Student-made, not affiliated with Northeastern University. Map © OpenStreetMap contributors, tiles by OpenFreeMap.
@@ -49,13 +49,9 @@ Until this is done the site runs in **preview mode**: pins save only in your own
 
 Moderators can edit or delete any pin.
 
-1. Sign up on the live site and verify your email.
+1. Sign up on the live site.
 2. Firebase console → **Authentication → Users** → copy your **User UID**.
 3. **Firestore → Start collection** → ID `admins` → document ID = your UID → add any field (e.g. `note: "me"`) → Save.
-
-### Optional: tidy the verification email
-
-**Authentication → Templates → Email address verification** lets you change the sender name to "NEU Microwave Map". Outlook often files these emails under Junk, and the site tells students to check there.
 
 ## Run it locally
 
@@ -69,5 +65,9 @@ then open <http://localhost:8080>.
 
 ## Limits on the free plan
 
-- 1,000 verification emails a day, 50,000 reads and 20,000 writes a day. That's plenty for a campus.
+- 150 password-reset emails a day, 50,000 reads and 20,000 writes a day. That's plenty for a campus.
 - The "which building is this?" lookup uses the public Overpass API. When it's busy, students just type the building name (with autocomplete).
+
+## Note on sign-in
+
+Accounts aren't email-verified: anyone who types an address ending in `@northeastern.edu` can make an account, even if it isn't theirs. To require verification again, add `&& request.auth.token.email_verified == true` to `isHusky()` in `firestore.rules` and send a verification email on sign-up.
